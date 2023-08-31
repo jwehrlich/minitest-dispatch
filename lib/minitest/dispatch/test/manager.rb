@@ -5,7 +5,10 @@ require "pathname"
 module Minitest
   module Dispatch
     module Test
+      # Manages a collection of test cases
       class Manager
+        class NoSuchFile < RuntimeError; end
+
         FILE_PATTERN = /^.*_test\.rb$/.freeze
         TEST_PATTERN = /^test_.*/.freeze
 
@@ -35,6 +38,8 @@ module Minitest
             else
               files << absolute_path
             end
+          rescue Errno::ENOENT
+            raise NoSuchFile, "No such file or folder: #{item}"
           end
 
           files.uniq.each do |item|
@@ -102,7 +107,7 @@ module Minitest
           end
         end
 
-        def update_status(test_class:, test_case:, status:, reschedule: false)
+        def update_status(test_class:, test_case:, status:, connection_id: nil)
           @semaphore.synchronize do
             index = @test_cases.find_index { |tc| tc.klass == test_class && tc.kase == test_case }
             if index.nil?
@@ -112,6 +117,7 @@ module Minitest
 
             Logger.debug "#{test_class}##{test_case} : #{status}"
             @test_cases[index].status = status
+            @test_cases[index].connection_id = connection_id
             return true
           end
         end
@@ -124,16 +130,26 @@ module Minitest
                 batch << test_case
                 count -= 1
               end
-              break unless count > 0
+              break unless count.positive?
             end
             batch
           end
         end
 
+        def tests_for(connection_id:)
+          @semaphore.synchronize do
+            @test_cases.select { |test_case| test_case.connection_id == connection_id }
+          end
+        end
+
         def running_tests
           @semaphore.synchronize do
-            @test_cases.select{|tc| tc.running?}
+            @test_cases.select(&:running?)
           end
+        end
+
+        def running?
+          !finished?
         end
 
         def finished?

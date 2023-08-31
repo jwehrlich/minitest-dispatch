@@ -1,10 +1,9 @@
 require "eventmachine"
 
-# TODO: Add reconnection logic to manager to try to reconnect to consumerdd
-# TODO: Use quit command to kill cosnumers
-
 module Minitest
   module Dispatch
+    # This is the main entry point for the central server that will manager the Orchestration
+    # of test runs and report generation.
     class Manager
       def self.start(options)
         Logger.info "Starting manager..."
@@ -28,27 +27,63 @@ module Minitest
         @test_files = options[:test_files]
         @test_manager = Test::Manager.new(@test_files)
 
+        @junit_test_class_prefix = options[:junit_test_class_prefix]
         @junit_report_path = options[:junit_report_path]
       end
 
       def run
         EventMachine.run do
-          EventMachine.add_periodic_timer(Settings::DEFAULT_INTERVAL) do
+          @healthcheck = EventMachine.add_periodic_timer(Settings::DEFAULT_INTERVAL) do
             Logger.debug "Processed: #{@test_manager.test_results[:test_count]} of #{@test_manager.test_cases.count}"
             # Logger.debug "Active tests:\n#{@test_manager.running_tests.join("\n")}"
             @connection_manager.close_all if @test_manager.finished?
           end
 
-          @connection_manager.add_callback(:unbind) do
-            unless @connection_manager.open_connections?
-              JUnitReport.generate(report_path: @junit_report_path, test_results: @test_manager.test_results)
-              Logger.info "Shutting down dispatch manager"
-              print_result_summary(@test_manager.test_results)
-              EM.stop
+          @connection_manager.add_callback(:unbind) do |connection|
+            if @test_manager.running?
+              EventMachine::Timer.new(Settings::DEFAULT_INTERVAL) do
+                adapter = @connection_manager.adapter_for(connection_id: connection.id)
+                @test_manager.tests_for(connection_id: adapter.connection_id).each do |test_case|
+                  @test_manager.update_status(
+                    test_class: test_case.klass,
+                    test_case: test_case.kase,
+                    status: Test::Case::PENDING_STATUS
+                  )
+                end
+                begin
+                  adapter.reconnect
+                rescue Connection::Adapter::TooManyRetryAttpempts
+                  shutdown(failed_message: "Lost connections to consumers") if @connection_manager.disconnected?
+                end
+              end
+            else
+              shutdown
             end
           end
           @connection_manager.open_all
         end
+      end
+
+      def shutdown(failed_message: nil)
+        return if @shutdown
+
+        @shutdown = true
+        @healthcheck.cancel
+        @connection_manager.clear_callbacks
+        @connection_manager.close_all
+
+        if failed_message.nil?
+          JUnitReport.generate(
+            report_path: @junit_report_path,
+            test_results: @test_manager.test_results,
+            class_prefix: @junit_test_class_prefix
+          )
+          print_result_summary(@test_manager.test_results)
+        else
+          Logger.error failed_message
+        end
+
+        EventMachine.stop_event_loop
       end
 
       def process_object(object)
@@ -75,13 +110,14 @@ module Minitest
           @test_manager.update_status(
             test_class: test_case.klass,
             test_case: test_case.kase,
-            status: Test::Case::PENDING_STATUS,
-            reschedule: true
+            status: Test::Case::PENDING_STATUS
           )
 
           unless object.dig(:options, :bad_core)
-            conn_adapter = @connection_manager.adapter_for(connection_id: object[:connection_id])
-            process_test_batch(connection_id: conn_adapter.connection_id, count: 1)
+            EventMachine::Timer.new(Settings::DEFAULT_INTERVAL) do
+              conn_adapter = @connection_manager.adapter_for(connection_id: object[:connection_id])
+              process_test_batch(connection_id: conn_adapter.connection_id, count: 1)
+            end
           end
         else
           Logger.error "Unexpected action `#{object[:action]}` : #{object}"
@@ -96,7 +132,8 @@ module Minitest
             @test_manager.update_status(
               test_class: test_case.klass,
               test_case: test_case.kase,
-              status: Test::Case::RUNNING_STATUS
+              status: Test::Case::RUNNING_STATUS,
+              connection_id: connection_id
             )
             conn_adapter.connection.send_object({ test_case: test_case, action: :test })
           end

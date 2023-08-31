@@ -1,6 +1,7 @@
 module Minitest
   module Dispatch
     module Connection
+      # This creates a communication tunnel between forked processes and the parent task.
       class Channel
         include CallbacksMixin
 
@@ -25,15 +26,15 @@ module Minitest
           send_data(Marshal.dump(object))
         end
 
-        def close_connection
-          @read&.close_connection_after_writing
-          @write&.close_connection_after_writing
+        def close_connections
+          @read.close_connection_after_writing if defined? @read
+          @write.close_connection_after_writing if defined? @write
         end
 
         private
 
         def setup_read
-          @read ||= EventMachine.attach(@io_read, Deferred)
+          @read ||= EventMachine.attach(@io_read, Unbound)
 
           me = self
           @read.define_singleton_method :receive_data do |data|

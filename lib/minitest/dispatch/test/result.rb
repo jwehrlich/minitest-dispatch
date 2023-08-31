@@ -1,6 +1,7 @@
 module Minitest
   module Dispatch
     module Test
+      # Stores test result data
       class Result
         attr_reader :assertions, :display, :errors, :failures, :location, :result_code, :run_count,
                     :source_location, :test_case, :test_suite, :time

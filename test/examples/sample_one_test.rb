@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
-class DispatchConsumerTest < Minitest::Test
+class SampleOneTest < Minitest::Test
   def test_be_happy
     sleep 5
     puts "foo"

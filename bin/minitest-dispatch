@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 
-# TODO: Add method discription for ruby doc creation
 # TODO: Move options parsing into a global consant for eaiser tracking
 
 require "bundler/setup"
@@ -14,21 +13,32 @@ require "minitest/dispatch"
 options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: minitest-dispatch [options]"
-  opts.on("-m", "--mode=mode", "Do you want to run as a Dispatcher or Consumer") { |mode| options[:mode] = mode }
   opts.on("-c", "--cores=core_count", "CPU cores to use") { |core_count| options[:cores] = core_count.to_i }
   opts.on("-h", "--host=host", 'Hostname to bind to, by default it will be "0.0.0.0"') { |host| options[:host] = host }
+  opts.on("-m", "--mode=mode", "Do you want to run as a Dispatcher or Consumer") { |mode| options[:mode] = mode }
   opts.on("-p", "--port=port", "Port to bind the server to, defaults to `33333`") { |port| options[:port] = port }
-  opts.on("-t", "--test-files=test_files", "[File|directory] path to test file(s)") do |test_files|
-    options[:test_files] = test_files
+
+  opts.on("-C", "--consumers=consumers", "Consumer nodes (ie: host1:port,host2:port)") do |consumers|
+    options[:consumers] = consumers
   end
   opts.on("-I", "--load-path=load_path", " specify $LOAD_PATH directory") do |load_path|
     options[:load_path] = load_path
   end
+  opts.on("-o", "--core-offset=core_offset", "First executor number for your first core") do |core_offset|
+    options[:core_offset] = core_offset.to_i
+  end
+
+  param = "--junit-test-class-prefix=junit_test_class_prefix"
+  message = "Prefix before JUnit test class names"
+  opts.on("-P", param, message) do |junit_test_class_prefix|
+    options[:junit_test_class_prefix] = junit_test_class_prefix
+  end
+
   opts.on("-r", "--junit-report-path=junit_report_path", "Path to generate JUnit Report") do |junit_report_path|
     options[:junit_report_path] = junit_report_path
   end
-  opts.on("-C", "--consumers=consumers", "Consumer nodes (ie: host1:port,host2:port)") do |consumers|
-    options[:consumers] = consumers
+  opts.on("-t", "--test-files=test_files", "[File|directory] path to test file(s)") do |test_files|
+    options[:test_files] = test_files
   end
 end.parse!
 

@@ -5,6 +5,8 @@ Gemspec/DeprecatedAttributeAssignment: # new in 1.30
   Enabled: true
 Gemspec/DevelopmentDependencies: # new in 1.44
   Enabled: true
+  AllowedGems:
+    - "rubocop"
 Gemspec/RequireMFA: # new in 1.23
   Enabled: true
 Layout/EmptyLineAfterMagicComment:
@@ -84,6 +86,10 @@ Metrics/BlockLength:
   CountComments: false
   Enabled: true
   Max: 50
+Metrics/ClassLength:
+  CountComments: false
+  Enabled: true
+  Max: 200
 Metrics/CollectionLiteralLength: # new in 1.47
   Enabled: true
 Metrics/MethodLength:
@@ -95,6 +101,10 @@ Security/CompoundHash: # new in 1.28
   Enabled: true
 Security/IoMethods: # new in 1.22
   Enabled: true
+Security/MarshalLoad:
+  Enabled: true
+  Exclude:
+    - "lib/minitest/dispatch/connection/channel.rb"
 Style/ArgumentsForwarding: # new in 1.1
   Enabled: true
 Style/ArrayIntersect: # new in 1.40
@@ -186,6 +196,10 @@ Style/RedundantStringEscape: # new in 1.37
   Enabled: true
 Style/SelectByRegexp: # new in 1.22
   Enabled: true
+Style/RescueStandardError:
+  Enabled: true
+  Exclude:
+    - "lib/minitest/dispatch/logger.rb"
 Style/StringChars: # new in 1.12
   Enabled: true
 Style/StringLiterals:

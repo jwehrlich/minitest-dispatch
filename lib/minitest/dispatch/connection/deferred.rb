@@ -3,14 +3,17 @@ require "eventmachine"
 module Minitest
   module Dispatch
     module Connection
+      # This is the general Connection type used for this service
       class Deferred < EventMachine::Connection
         include EventMachine::P::ObjectProtocol
         include CallbacksMixin
 
+        attr_reader :id
+
         def initialize(*args)
           super
           obj = args.find { |arg| arg.key?(:connection_id) }
-          @connection_id = obj[:connection_id] unless obj.nil?
+          @id = obj&.dig(:connection_id)
         end
 
         # If connection failed here because of Errno::ECONNREFUSED, than
@@ -30,16 +33,16 @@ module Minitest
         end
 
         def send_object(object)
-          super(object.merge(connection_id: @connection_id))
+          super(object.merge(connection_id: @id))
         end
 
         def receive_object(data)
           trigger_callback(:receive_object, data)
         end
 
-        def unbind(reason)
+        def unbind(*)
           trigger_callback(:post_init, self)
-          trigger_callback(:unbind, error? || reason)
+          trigger_callback(:unbind, self)
         end
 
         def post_inited(&block)

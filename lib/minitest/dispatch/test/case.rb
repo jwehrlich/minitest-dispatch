@@ -3,12 +3,13 @@
 module Minitest
   module Dispatch
     module Test
+      # This is a specific test case for a given test suite
       class Case
         PENDING_STATUS = "pending"
         RUNNING_STATUS = "running"
         FINISHED_STATUS = "finished"
 
-        attr_accessor :status
+        attr_accessor :status, :connection_id
         attr_reader :file, :klass, :kase
 
         def initialize(file:, klass:, kase:)
@@ -52,7 +53,7 @@ module Minitest
         end
 
         def to_s
-          "#<TestCase file: '#{@file}', class: '#{@klass}', case: '#{@kase}', status: #{@status}>"
+          "[\"#{@file}\", \"#{@klass}\", \"#{@kase}\", \"#{@status}]"
         end
       end
     end

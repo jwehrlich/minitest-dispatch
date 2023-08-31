@@ -1,6 +1,7 @@
 module Minitest
   module Dispatch
     module Connection
+      # This will manage a collection of addapters (consumer connections)
       class Manager
         include CallbacksMixin
 
@@ -38,12 +39,25 @@ module Minitest
         end
 
         def open_connections?
-          @adapters.values.any? { |adapter| !adapter.connection.nil? }
+          @adapters.values.any?(&:connected?)
+        end
+
+        def disconnected?
+          !open_connections?
+        end
+
+        def reconnect
+          @adapters.each_value do |adapter|
+            !adapter.connected? && !adapter.reconnect
+          end
         end
 
         def close_all
           @adapters.each_value do |adapter|
-            adapter.connection.close_connection_after_writing unless adapter.connection.nil?
+            unless adapter.connection.nil?
+              adapter.connection.send_object({ action: :disconnect })
+              adapter.connection.close_connection_after_writing
+            end
           end
         end
       end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
-class DispatchManagerTest < Minitest::Test
+class SampleTwoTest < Minitest::Test
   def test_be_happy_one
     puts "**** HAPPY TEST ONE ENVIRONMENT: #{ENV.fetch("TEST_ENV_NUMBER")} ****"
   end

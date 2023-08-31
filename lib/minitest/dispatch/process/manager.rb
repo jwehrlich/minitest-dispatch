@@ -1,18 +1,20 @@
 module Minitest
   module Dispatch
     module Process
+      # This manages a collection of child processes. (ie: test runners).
       class Manager
         include CallbacksMixin
 
-        def initialize(cores:)
+        def initialize(cores:, core_offset: Settings::DEFAULT_CORE_OFFSET)
           @semaphore = Thread::Mutex.new
           @cores = cores
+          @core_offset = core_offset
           @children = []
           @c_pos = 0
         end
 
         def start
-          @cores.times do |environment|
+          (@core_offset...(@core_offset + @cores)).each do |environment|
             @children << create_child(environment)
           end
         end
@@ -22,19 +24,14 @@ module Minitest
           child.add_callback(:failed_to_process) { |object| trigger_callback(:failed_to_process, object) }
           child.add_callback(:test_finished)     { |result| trigger_callback(:test_finished, result) }
 
-          child.add_callback(:recreate_child) do |child|
-            test_case = child.current_test_case
-            child.close_connections
+          child.add_callback(:recreate_child) do |old_child|
+            old_child.kill_process
 
-            Logger.debug "Deleting child: #{child}"
-            @children.delete_if do |c|
-              c.pid == child.pid && c.environment && child.environment
-            end
+            Logger.debug "Recreating child: #{old_child}"
+            index = @children.find_index { |c| c.environment == old_child.environment }
 
-            child = create_child(environment)
-            Logger.debug "Created new child: #{child}"
-            child.scheduled_test_case(test_case) unless test_case.nil?
-            @children << child
+            @children[index] = create_child(old_child.environment)
+            Logger.debug "Created new child: #{@children[index]}"
           end
         end
 
@@ -44,16 +41,21 @@ module Minitest
 
             if child.nil?
               Logger.error "Cannot run test right now, rescheduling test to be re-ran"
-              trigger_callback(:failed_to_process, {test_case: test_case})
+              trigger_callback(:failed_to_process, { test_case: test_case })
             else
               child.scheduled_test_case(test_case)
             end
           end
         end
 
-        def stop(is_trap: false)
-          Logger.debug "Stopping all #{@children.size} children..." unless is_trap
-          @children.each(&:kill_process)
+        def stop
+          @semaphore.synchronize do
+            return if defined? @shutdown
+
+            @shutdown = true
+            Logger.debug "Stopping all #{@children.size} children..."
+            @children.each(&:kill_process)
+          end
         end
       end
     end

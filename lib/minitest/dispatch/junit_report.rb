@@ -3,15 +3,18 @@ require "nokogiri"
 
 module Minitest
   module Dispatch
+    # this will take a collection of test results an generate a JUnit XML report
     class JUnitReport
-      def self.generate(report_path:, test_results:)
+      def self.generate(report_path:, test_results:, class_prefix: "")
+        class_prefix = "[#{class_prefix}] " unless class_prefix.empty?
+
         builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
           xml.testsuites do
             test_results.delete(:test_count)
             test_results.each do |test_suite, suite_details|
               ts_options = {
-                name: test_suite,
-                filepath: suite_details[:filepath],
+                name: "#{class_prefix}#{test_suite}",
+                file: suite_details[:filepath],
                 skipped: suite_details[:skipped],
                 failures: suite_details[:failures],
                 errors: suite_details[:errors],
@@ -23,8 +26,9 @@ module Minitest
                 suite_details[:test_results].each do |test_result|
                   tc_options = {
                     name: test_result.test_case,
-                    lineno: test_result.source_location[1],
-                    classname: test_result.test_suite,
+                    file: suite_details[:filepath],
+                    line: test_result.source_location[1],
+                    classname: "#{class_prefix}#{test_result.test_suite}",
                     assertions: test_result.assertions,
                     time: test_result.time
                   }
@@ -41,7 +45,7 @@ module Minitest
                       end
                     end
 
-                    xml.skipped(type: "Minitest::Skip") {} if test_result.skipped?
+                    xml.skipped(type: "Minitest::Skip") if test_result.skipped?
                   end
                 end
               end
