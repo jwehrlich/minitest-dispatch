@@ -10,7 +10,6 @@ Rake::TestTask.new(:test) do |t|
 end
 
 require "rubocop/rake_task"
-
 RuboCop::RakeTask.new
 
 task default: %i[test rubocop]
