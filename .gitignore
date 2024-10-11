@@ -18,3 +18,7 @@
 /tmp/
 /tmp/
 /vendor/
+.byebug_history
+results.json
+test/tmp/*
+

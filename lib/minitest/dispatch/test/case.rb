@@ -8,28 +8,42 @@ module Minitest
         PENDING_STATUS = "pending"
         RUNNING_STATUS = "running"
         FINISHED_STATUS = "finished"
+        RETRY_OR_FINISH = "retry_or_finish"
 
-        attr_accessor :status, :connection_id
+        attr_accessor :status, :retries, :connection_id
         attr_reader :file, :klass, :kase
 
-        def initialize(file:, klass:, kase:)
+        def initialize(file:, klass:, kase:, retries: Settings::DEFAULT_RETRY_COUNT)
           @file = file
           @klass = klass.name
           @kase = kase
           @status = PENDING_STATUS
+          @retries = retries
+          @max_message_size = Settings::DEFAULT_MAX_FAILURE_MESSAGE_SIZE
         end
 
         def run
-          require_relative file unless klass.is_a?(Class)
+          load file if !Object.const_defined?(klass) || Minitest::Dispatch::Settings::DEFAULT_AUTORELOAD
 
           Logger.debug "Running #{@klass}.#{kase}..."
           mtest = Object.const_get(klass).new(kase)
 
+          mtest.run
+          mtest.failures = mtest.failures.collect do |failure|
+            if (message = failure.message).length > @max_message_size
+              f = failure.class.new("[TRUNCATED] #{message[0..@max_message_size]}...")
+              f.set_backtrace(failure.backtrace)
+              f
+            else
+              failure
+            end
+          end
+
           Result.new(
             test_case: self,
-            minitest_results: mtest.run
+            minitest_results: mtest
           )
-        rescue RuntimeError => e
+        rescue Exception => e
           result = mtest
           if defined?(::Minitest::Result)
             result = ::Minitest::Result.from(mtest)
@@ -50,6 +64,10 @@ module Minitest
 
         def running?
           @status == RUNNING_STATUS
+        end
+
+        def finished?
+          @status == FINISHED_STATUS
         end
 
         def to_s

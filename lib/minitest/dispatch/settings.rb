@@ -12,6 +12,10 @@ module Minitest
       DEFAULT_TEST_PATH ||= "test"
       DEFAULT_TIMEOUT ||= 60
       DEFAULT_INTERVAL ||= 1
+      DEFAULT_RETRY_COUNT ||= 0
+      DEFAULT_TOTAL_RETRIES ||= 0
+      DEFAULT_AUTORELOAD ||= false
+      DEFAULT_MAX_FAILURE_MESSAGE_SIZE ||= 7_000
 
       class << self
         attr_reader :in_trap
@@ -56,7 +60,8 @@ module Minitest
             mode: nil,
             test_files: DEFAULT_TEST_PATH,
             timeout: DEFAULT_TIMEOUT,
-            workspace: Dir.pwd
+            workspace: Dir.pwd,
+            autoreload: DEFAULT_AUTORELOAD
           }
         end
       end

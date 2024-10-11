@@ -16,7 +16,7 @@ module Minitest
         @application_start_time = Time.now
 
         unless (@workspace = options[:workspace]) && File.directory?(@workspace)
-          raise "Workspace provided is not a valid dictory: #{@workspace}"
+          raise "Workspace provided is not a valid directory: #{@workspace}"
         end
 
         @connection_manager = Connection::Manager.new(consumers: options[:consumers], timeout: options[:timeout])
@@ -25,7 +25,9 @@ module Minitest
         end
 
         @test_files = options[:test_files]
-        @test_manager = Test::Manager.new(@test_files)
+        @test_manager = Test::Manager.new(@test_files,
+                                          retries_allowed: options[:retries],
+                                          total_retries_allowed: options[:max_retries])
 
         @junit_test_class_prefix = options[:junit_test_class_prefix]
         @junit_report_path = options[:junit_report_path]
@@ -64,7 +66,7 @@ module Minitest
         end
       end
 
-      def shutdown(failed_message: nil)
+      def shutdown(failed_message: nil, should_prompt: true)
         return if @shutdown
 
         @shutdown = true
@@ -72,15 +74,17 @@ module Minitest
         @connection_manager.clear_callbacks
         @connection_manager.close_all
 
-        if failed_message.nil?
-          JUnitReport.generate(
-            report_path: @junit_report_path,
-            test_results: @test_manager.test_results,
-            class_prefix: @junit_test_class_prefix
-          )
-          print_result_summary(@test_manager.test_results)
-        else
-          Logger.error failed_message
+        if should_prompt
+          if failed_message.nil?
+            JUnitReport.generate(
+              report_path: @junit_report_path,
+              test_results: @test_manager.test_results,
+              class_prefix: @junit_test_class_prefix
+            )
+            print_result_summary(@test_manager.test_results)
+          else
+            Logger.error failed_message
+          end
         end
 
         EventMachine.stop_event_loop
@@ -96,14 +100,18 @@ module Minitest
         when :test_result
           result = object[:result]
           print result.result_code
-          @test_manager.update_status(
+
+          retry_test = result.error? || result.failure?
+          test_case = @test_manager.update_status(
             test_class: result.test_suite,
             test_case: result.test_case,
-            status: Test::Case::FINISHED_STATUS
+            status: retry_test ? Test::Case::RETRY_OR_FINISH : Test::Case::FINISHED_STATUS
           )
-          @test_manager.add_result(result)
-          conn_adapter = @connection_manager.adapter_for(connection_id: object[:connection_id])
-          process_test_batch(connection_id: conn_adapter.connection_id, count: 1)
+          @test_manager.add_result(result) if test_case.finished?
+          EventMachine::Timer.new(Settings::DEFAULT_INTERVAL) do
+            conn_adapter = @connection_manager.adapter_for(connection_id: object[:connection_id])
+            process_test_batch(connection_id: conn_adapter.connection_id, count: 1)
+          end
         when :reschedule_test
           test_case = object[:test_case]
           Logger.info "Rescheduling test: #{test_case.klass}##{test_case.kase}"

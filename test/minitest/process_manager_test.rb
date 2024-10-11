@@ -39,7 +39,7 @@ class ProcessManagerTest < Minitest::Test
       pid = children.first.pid
       ::Process.kill("USR1", pid)
 
-      EventMachine::Timer.new(Minitest::Dispatch::Settings::DEFAULT_INTERVAL * 2) do
+      EventMachine::Timer.new(1) do
         assert pid != children.first.pid, "Process should have restarted wth a different pid"
         assert_equal children.first.status, :ready
 
