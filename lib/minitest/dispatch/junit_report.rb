@@ -6,7 +6,7 @@ module Minitest
     # this will take a collection of test results an generate a JUnit XML report
     class JUnitReport
       def self.generate(report_path:, test_results:, class_prefix: "")
-        class_prefix = "[#{class_prefix}] " unless class_prefix.empty?
+        class_prefix = "[#{class_prefix}] " unless class_prefix.nil? || class_prefix.strip == ""
 
         builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
           xml.testsuites do

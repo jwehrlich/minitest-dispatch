@@ -14,10 +14,13 @@ module Minitest
 
         attr_reader :test_cases, :test_results
 
-        def initialize(test_files)
+        def initialize(test_files, retries_allowed: nil, total_retries_allowed: nil)
           @semaphore = Thread::Mutex.new
           @test_cases = []
           @test_results = { test_count: 0 }
+          @retries_allowed = retries_allowed || Settings::DEFAULT_RETRY_COUNT
+          @total_retries_allowed = total_retries_allowed || Settings::DEFAULT_TOTAL_RETRIES
+          @total_retries = 0
           load_test_files(test_files)
           load_test_cases
         end
@@ -56,7 +59,8 @@ module Minitest
                 @test_cases << Test::Case.new(
                   file: test_file,
                   klass: test_class,
-                  kase: test_case
+                  kase: test_case,
+                  retries: @retries_allowed
                 )
               end
             end
@@ -116,9 +120,20 @@ module Minitest
             end
 
             Logger.debug "#{test_class}##{test_case} : #{status}"
+
+            if status == Test::Case::RETRY_OR_FINISH
+              if @test_cases[index].retries.positive? && @total_retries <= @total_retries_allowed
+                @total_retries += 1
+                @test_cases[index].retries -= 1
+                status = Test::Case::PENDING_STATUS
+              else
+                status = Test::Case::FINISHED_STATUS
+              end
+            end
+
             @test_cases[index].status = status
             @test_cases[index].connection_id = connection_id
-            return true
+            return @test_cases[index]
           end
         end
 

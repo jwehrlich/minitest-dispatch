@@ -1,12 +1,16 @@
 AllCops:
   TargetRubyVersion: 2.6
   NewCops: enable
+Gemspec/AddRuntimeDependency:
+  Enabled: true
 Gemspec/DeprecatedAttributeAssignment: # new in 1.30
   Enabled: true
 Gemspec/DevelopmentDependencies: # new in 1.44
   Enabled: true
   AllowedGems:
-    - "rubocop"
+    - rubocop
+    - byebug
+    - mocha
 Gemspec/RequireMFA: # new in 1.23
   Enabled: true
 Layout/EmptyLineAfterMagicComment:
@@ -57,6 +61,8 @@ Lint/NumberedParameterAssignment: # new in 1.9
   Enabled: true
 Lint/OrAssignmentToConstant: # new in 1.9
   Enabled: true
+  Exclude:
+    - lib/minitest/dispatch/settings.rb
 Lint/RedundantDirGlobSort: # new in 1.8
   Enabled: true
 Lint/RefinementImportMethods: # new in 1.27
@@ -65,6 +71,10 @@ Lint/RequireRangeParentheses: # new in 1.32
   Enabled: true
 Lint/RequireRelativeSelfPath: # new in 1.22
   Enabled: true
+Lint/RescueException:
+  Exclude:
+    - test/test_helper.rb
+    - lib/minitest/dispatch/test/case.rb
 Lint/SymbolConversion: # new in 1.9
   Enabled: true
 Lint/ToEnumArguments: # new in 1.1
@@ -95,6 +105,12 @@ Metrics/CollectionLiteralLength: # new in 1.47
 Metrics/MethodLength:
   Enabled: true
   Max: 50
+Metrics/CyclomaticComplexity:
+  Enabled: True
+  Max: 8
+Metrics/PerceivedComplexity:
+  Enabled: True
+  Max: 9
 Naming/BlockForwarding: # new in 1.24
   Enabled: true
 Security/CompoundHash: # new in 1.28
@@ -104,7 +120,7 @@ Security/IoMethods: # new in 1.22
 Security/MarshalLoad:
   Enabled: true
   Exclude:
-    - "lib/minitest/dispatch/connection/channel.rb"
+    - lib/minitest/dispatch/connection/channel.rb
 Style/ArgumentsForwarding: # new in 1.1
   Enabled: true
 Style/ArrayIntersect: # new in 1.40
@@ -199,7 +215,7 @@ Style/SelectByRegexp: # new in 1.22
 Style/RescueStandardError:
   Enabled: true
   Exclude:
-    - "lib/minitest/dispatch/logger.rb"
+    - lib/minitest/dispatch/logger.rb
 Style/StringChars: # new in 1.12
   Enabled: true
 Style/StringLiterals:

@@ -5,10 +5,10 @@ module Minitest
       class Manager
         include CallbacksMixin
 
-        def initialize(consumers:, timeout: Settings::DEFAULT_TIMEOUT)
+        def initialize(consumers:, timeout: nil)
           @consumers = consumers.split(",")
           @adapters = {}
-          @timeout = timeout
+          @timeout = timeout || Settings::DEFAULT_TIMEOUT
         end
 
         def open_all
