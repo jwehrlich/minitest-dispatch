@@ -119,21 +119,27 @@ module Minitest
               return false
             end
 
-            Logger.debug "#{test_class}##{test_case} : #{status}"
+            cur_case = @test_cases[index]
 
             if status == Test::Case::RETRY_OR_FINISH
-              if @test_cases[index].retries.positive? && @total_retries <= @total_retries_allowed
+              Logger.debug "#{test_class}##{test_case} : { retries: #{cur_case.retries}, " \
+                           "retries_performed: #{@total_retries}, retries_allowed: #{@total_retries_allowed} }"
+
+              if cur_case.retries.positive? && @total_retries <= @total_retries_allowed
                 @total_retries += 1
-                @test_cases[index].retries -= 1
-                status = Test::Case::PENDING_STATUS
+                cur_case.retries -= 1
+                cur_case.status = Test::Case::PENDING_STATUS
               else
-                status = Test::Case::FINISHED_STATUS
+                cur_case.status = Test::Case::FINISHED_STATUS
               end
+
+            else
+              cur_case.status = status
             end
 
-            @test_cases[index].status = status
-            @test_cases[index].connection_id = connection_id
-            return @test_cases[index]
+            Logger.debug "#{test_class}##{test_case} : #{status}"
+            cur_case.connection_id = connection_id
+            return cur_case
           end
         end
 

@@ -7,6 +7,7 @@ module Minitest
     class Manager
       def self.start(options)
         Logger.info "Starting manager..."
+        Logger.debug "Options: #{options}"
         Settings.disable_autorun_tests
         @instance ||= new(options)
         @instance.run
