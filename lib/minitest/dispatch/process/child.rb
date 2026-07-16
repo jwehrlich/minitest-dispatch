@@ -3,7 +3,7 @@ require "eventmachine"
 module Minitest
   module Dispatch
     module Process
-      # This is manages a forked process that can run tests.
+      # This manages a forked process that can run tests.
       class Child
         include CallbacksMixin
         attr_accessor :current_test_case
@@ -39,7 +39,7 @@ module Minitest
           end
 
           @pid = EventMachine.fork_reactor do
-            @pid = ::Process.pid # inside fork, does not know about outsite @pid
+            @pid = ::Process.pid # inside fork, does not know about outside @pid
             @channel_to_child.receive_object do |object|
               run_test_case(object)
             end
@@ -104,10 +104,10 @@ module Minitest
         end
 
         def run_test_case(test_case)
-          log("Running test case: #{test_case}")
           orig_env = ENV.fetch("TEST_ENV_NUMBER", nil)
           ENV["TEST_ENV_NUMBER"] = @environment.to_s
 
+          log("Running test case: #{test_case} on #{to_s}, TEST_ENV_NUMBER: #{ENV['TEST_ENV_NUMBER']}>")
           begin
             result = test_case.run
           ensure

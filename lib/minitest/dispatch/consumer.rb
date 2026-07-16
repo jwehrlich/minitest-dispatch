@@ -96,7 +96,7 @@ module Minitest
           @connection&.close_connection_after_writing
           EventMachine.stop_event_loop
         else
-          Logger.error "Do not know how to process: #{obj}"
+          Logger.error "Do not know how to process: #{object}"
         end
       end
 
