@@ -29,15 +29,7 @@ module Minitest
           mtest = Object.const_get(klass).new(kase)
 
           mtest.run
-          mtest.failures = mtest.failures.collect do |failure|
-            if (message = failure.message).length > @max_message_size
-              f = failure.class.new("[TRUNCATED] #{message[0..@max_message_size]}...")
-              f.set_backtrace(failure.backtrace)
-              f
-            else
-              failure
-            end
-          end
+          mtest.failures = mtest.failures.collect { |failure| truncate_failure(failure) }
 
           Result.new(
             test_case: self,
@@ -50,7 +42,16 @@ module Minitest
             result.assertions = 0
             result.time = 0.0
           end
-          result.failures << mtest.sanitize_exception(e)
+
+          failures = if mtest.respond_to?(:failures) && mtest.failures.any?
+                       Array(mtest.failures)
+                     else
+                       [e]
+                     end
+
+          failures.flatten.each do |failure|
+            result.failures << normalize_failure(failure, fallback_error: e)
+          end
 
           Result.new(
             test_case: self,
@@ -72,6 +73,44 @@ module Minitest
 
         def to_s
           "[\"#{@file}\", \"#{@klass}\", \"#{@kase}\", \"#{@status}]"
+        end
+
+        private
+
+        def truncate_failure(failure)
+          truncated_message = nil
+          message = failure.respond_to?(:message) ? failure.message.to_s : failure.to_s
+          return failure if message.length <= @max_message_size
+
+          truncated_message = "[TRUNCATED] #{message[0..@max_message_size]}..."
+
+          if defined?(::Minitest::UnexpectedError) && failure.is_a?(::Minitest::UnexpectedError)
+            exception = StandardError.new(truncated_message)
+            source_backtrace = failure.exception.respond_to?(:backtrace) ? failure.exception.backtrace : []
+            exception.set_backtrace(source_backtrace || [])
+            return ::Minitest::UnexpectedError.new(exception)
+          end
+
+          truncated_failure = failure.class.new(truncated_message)
+          if truncated_failure.respond_to?(:set_backtrace)
+            backtrace = failure.respond_to?(:backtrace) ? failure.backtrace : []
+            truncated_failure.set_backtrace(backtrace || [])
+          end
+          truncated_failure
+        rescue StandardError
+          fallback_message = truncated_message || failure.to_s
+          fallback = StandardError.new(fallback_message)
+          backtrace = failure.respond_to?(:backtrace) ? failure.backtrace : []
+          fallback.set_backtrace(backtrace || [])
+          fallback
+        end
+
+        def normalize_failure(failure, fallback_error:)
+          return failure if failure.respond_to?(:backtrace)
+
+          normalized = StandardError.new(failure.to_s)
+          normalized.set_backtrace(fallback_error&.backtrace || [])
+          normalized
         end
       end
     end

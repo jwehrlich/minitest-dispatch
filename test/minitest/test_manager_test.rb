@@ -51,6 +51,31 @@ class TestManagerTest < Minitest::Test
     end
   end
 
+  def test_truncated_unexpected_error
+    class_name = "TruncatedUnexpectedErrorTest"
+    file = new_test_file(class_name) do
+      new_test_case("case") do
+        "raise 'x' * 20_000"
+      end
+    end
+
+    run_test({ file: file, class_name: class_name, test_case: "case" }) do |results|
+      results = results[class_name]
+      assert_equal 1, results[:tests], "expected only one test"
+      assert_equal 1, results[:errors], "expected one error"
+      assert_equal 0, results[:failures], "expected no assertion failures"
+      assert results[:test_results].one?, "expected test results"
+
+      test_result = results[:test_results].first
+      assert test_result.error?, "expected an error"
+      assert !test_result.failure?, "expected not to be a failure"
+      assert test_result.errors.one?
+
+      error_msg = test_result.errors.first[:message]
+      assert error_msg.include?("TRUNCATED"), error_msg
+    end
+  end
+
   def test_failed_assert
     file = new_test_file("MyTestCase") do
       new_test_case("foo") do
