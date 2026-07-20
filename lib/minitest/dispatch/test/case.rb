@@ -23,42 +23,16 @@ module Minitest
         end
 
         def run
-          load file if !Object.const_defined?(klass) || Minitest::Dispatch::Settings::DEFAULT_AUTORELOAD
+          load_test_file_if_needed
 
           Logger.debug "Running #{@klass}.#{kase}..."
           mtest = Object.const_get(klass).new(kase)
 
           mtest.run
-          mtest.failures = mtest.failures.collect { |failure| truncate_failure(failure) }
-
-          Result.new(
-            test_case: self,
-            minitest_results: mtest
-          )
+          mtest.failures = truncate_failures(mtest.failures)
+          build_result(mtest)
         rescue Exception => e
-          result = mtest
-          if defined?(::Minitest::Result)
-            result = ::Minitest::Result.from(mtest)
-            result.assertions = 0
-            result.time = 0.0
-          end
-
-          failures = if mtest.respond_to?(:failures) && mtest.failures.any?
-                       Array(mtest.failures)
-                     else
-                       [e]
-                     end
-
-          if result.respond_to?(:failures) && result.failures.respond_to?(:<<)
-            failures.flatten.each do |failure|
-              result.failures << normalize_failure(failure, fallback_error: e)
-            end
-          end
-
-          Result.new(
-            test_case: self,
-            minitest_results: result
-          )
+          build_error_result(mtest, e)
         end
 
         def pending?
@@ -79,6 +53,52 @@ module Minitest
 
         private
 
+        def load_test_file_if_needed
+          load file if !Object.const_defined?(klass) || Minitest::Dispatch::Settings::DEFAULT_AUTORELOAD
+        end
+
+        def truncate_failures(failures)
+          failures.collect { |failure| truncate_failure(failure) }
+        end
+
+        def build_result(minitest_results)
+          Result.new(
+            test_case: self,
+            minitest_results: minitest_results
+          )
+        end
+
+        def build_error_result(mtest, error)
+          result = convert_to_minitest_result(mtest)
+          append_normalized_failures(result, failure_candidates(mtest, error), error)
+          build_result(result)
+        end
+
+        def convert_to_minitest_result(mtest)
+          return mtest unless defined?(::Minitest::Result)
+
+          result = ::Minitest::Result.from(mtest)
+          result.assertions = 0
+          result.time = 0.0
+          result
+        end
+
+        def failure_candidates(mtest, error)
+          if mtest.respond_to?(:failures) && mtest.failures.any?
+            Array(mtest.failures).flatten
+          else
+            [error]
+          end
+        end
+
+        def append_normalized_failures(result, failures, fallback_error)
+          return unless result.respond_to?(:failures) && result.failures.respond_to?(:<<)
+
+          failures.each do |failure|
+            result.failures << normalize_failure(failure, fallback_error: fallback_error)
+          end
+        end
+
         # Safely truncates long failure messages while preserving exception metadata.
         # Truncation prevents marshalling errors when transmitting results over IPC and
         # ensures consistent output formatting in reports.
@@ -97,32 +117,50 @@ module Minitest
         # @param failure [Exception] the failure/error to potentially truncate
         # @return [Exception] original failure if within size limit, or truncated wrapper
         def truncate_failure(failure)
-          truncated_message = nil
-          message = failure.respond_to?(:message) ? failure.message.to_s : failure.to_s
-          return failure if message.length <= @max_message_size
+          truncated_message = truncated_message_for(failure)
+          return failure if truncated_message.nil?
 
-          truncated_message = "[TRUNCATED] #{message[0..@max_message_size]}..."
+          return truncate_unexpected_error(failure, truncated_message) if unexpected_error_failure?(failure)
 
-          if defined?(::Minitest::UnexpectedError) && failure.is_a?(::Minitest::UnexpectedError)
-            exception = StandardError.new(truncated_message)
-            source_backtrace = failure.exception.respond_to?(:backtrace) ? failure.exception.backtrace : []
-            exception.set_backtrace(source_backtrace || [])
-            return ::Minitest::UnexpectedError.new(exception)
-          end
-
-          truncated_failure = failure.class.new(truncated_message)
-          if truncated_failure.respond_to?(:set_backtrace)
-            backtrace = failure.respond_to?(:backtrace) ? failure.backtrace : []
-            truncated_failure.set_backtrace(backtrace || [])
-          end
-          truncated_failure
+          build_truncated_failure(failure, truncated_message)
         rescue StandardError
           # Fallback when failure.class.new(msg) fails (e.g., custom exception with required args)
           fallback_message = truncated_message || failure.to_s
           fallback = StandardError.new(fallback_message)
-          backtrace = failure.respond_to?(:backtrace) ? failure.backtrace : []
-          fallback.set_backtrace(backtrace || [])
+          fallback.set_backtrace(safe_backtrace_for(failure))
           fallback
+        end
+
+        def truncated_message_for(failure)
+          message = failure.respond_to?(:message) ? failure.message.to_s : failure.to_s
+          return if message.length <= @max_message_size
+
+          "[TRUNCATED] #{message[0..@max_message_size]}..."
+        end
+
+        def unexpected_error_failure?(failure)
+          defined?(::Minitest::UnexpectedError) && failure.is_a?(::Minitest::UnexpectedError)
+        end
+
+        def truncate_unexpected_error(failure, truncated_message)
+          exception = StandardError.new(truncated_message)
+          source = failure.exception
+          source_backtrace = source.respond_to?(:backtrace) ? source.backtrace : []
+          exception.set_backtrace(source_backtrace || [])
+          ::Minitest::UnexpectedError.new(exception)
+        end
+
+        def build_truncated_failure(failure, truncated_message)
+          truncated_failure = failure.class.new(truncated_message)
+          return truncated_failure unless truncated_failure.respond_to?(:set_backtrace)
+
+          truncated_failure.set_backtrace(safe_backtrace_for(failure))
+          truncated_failure
+        end
+
+        def safe_backtrace_for(failure)
+          backtrace = failure.respond_to?(:backtrace) ? failure.backtrace : []
+          backtrace || []
         end
 
         # Converts non-exception objects to proper Exception instances.
