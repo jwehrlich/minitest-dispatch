@@ -64,4 +64,3 @@ class ChannelTest < Minitest::Test
     assert_equal [{ id: 1 }, { id: 2 }], received
   end
 end
-

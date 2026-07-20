@@ -1,6 +1,6 @@
 require "test_helper"
 
-class TestManagerTest < Minitest::Test
+class ManagerTest < Minitest::Test
   def test_basic_test
     file = new_test_file("MyTestCase") do
       new_test_case("foo") do
