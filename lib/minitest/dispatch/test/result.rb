@@ -29,11 +29,11 @@ module Minitest
         end
 
         def error?
-          errors.count.positive?
+          errors.any?
         end
 
         def failure?
-          failures.count.positive?
+          failures.any?
         end
 
         def skipped?

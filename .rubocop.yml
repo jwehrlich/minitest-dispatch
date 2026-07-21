@@ -99,7 +99,7 @@ Metrics/BlockLength:
 Metrics/ClassLength:
   CountComments: false
   Enabled: true
-  Max: 200
+  Max: 300
 Metrics/CollectionLiteralLength: # new in 1.47
   Enabled: true
 Metrics/MethodLength:

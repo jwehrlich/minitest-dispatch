@@ -6,6 +6,7 @@ module Minitest
       # This manages a forked process that can run tests.
       class Child
         include CallbacksMixin
+
         attr_accessor :current_test_case
         attr_reader :pid, :environment, :status
 
@@ -107,7 +108,7 @@ module Minitest
           orig_env = ENV.fetch("TEST_ENV_NUMBER", nil)
           ENV["TEST_ENV_NUMBER"] = @environment.to_s
 
-          log("Running test case: #{test_case} on #{to_s}, TEST_ENV_NUMBER: #{ENV['TEST_ENV_NUMBER']}>")
+          log("Running test case: #{test_case} on #{self}, TEST_ENV_NUMBER: #{ENV.fetch("TEST_ENV_NUMBER", nil)}>")
           begin
             result = test_case.run
           ensure
