@@ -25,10 +25,10 @@ Gem::Specification.new do |spec|
   end
 
   spec.required_ruby_version = ">= 2.6.0"
-  spec.add_dependency "eventmachine", "~>1.0.7"
-  spec.add_dependency "minitest",     "~>5.10.0"
-  spec.add_dependency "nokogiri",     "~>1.13.10"
-  spec.add_dependency "os",           "~>0.9.6"
+  spec.add_dependency "eventmachine", "~>1.0"
+  spec.add_dependency "minitest",     "~>5.10"
+  spec.add_dependency "nokogiri",     "~>1.13"
+  spec.add_dependency "os",           "~>0.9"
   spec.add_dependency "rake"
 
   spec.add_development_dependency "byebug"
